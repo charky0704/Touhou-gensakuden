@@ -4,78 +4,67 @@
     <meta charset="UTF-8">
     <title>東方幻作伝</title>
     <style>
-        body {
-            background-color: #111;
-            color: #fff;
-            text-align: center;
-            font-family: sans-serif;
-            margin-top: 20px;
-        }
-        canvas {
-            background-color: #000;
-            display: block;
-            margin: 0 auto;
-            border: 2px solid #555;
-        }
+        body { background-color: #111; color: #fff; text-align: center; font-family: sans-serif; margin-top: 20px; }
+        canvas { background-color: #000; display: block; margin: 0 auto; border: 2px solid #555; }
     </style>
 </head>
 <body>
     <h1>東方幻作伝</h1>
-    <p>矢印キー または WASD：移動</p>
+    <p>矢印キー：移動 / Zキー：ショット</p>
     <canvas id="gameCanvas" width="480" height="640"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // 自機の情報
-        let player = {
-            x: canvas.width / 2,
-            y: canvas.height - 80,
-            speed: 4,
-            radius: 6,
-            color: 'red'
-        };
-
-        // キー入力の状態管理
+        let player = { x: 240, y: 560, speed: 5, radius: 6 };
+        let bullets = []; // 弾を保存しておく配列
         let keys = {};
-        window.addEventListener('keydown', (e) => keys[e.key] = true);
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            // Zキーが押されたら弾を生成
+            if (e.key === 'z' || e.key === 'Z') {
+                bullets.push({ x: player.x, y: player.y - 10, speed: 8 });
+            }
+        });
         window.addEventListener('keyup', (e) => keys[e.key] = false);
 
-        // 更新処理
         function update() {
-            if ((keys['ArrowLeft'] || keys['a']) && player.x > player.radius) {
-                player.x -= player.speed;
-            }
-            if ((keys['ArrowRight'] || keys['d']) && player.x < canvas.width - player.radius) {
-                player.x += player.speed;
-            }
-            if ((keys['ArrowUp'] || keys['w']) && player.y > player.radius) {
-                player.y -= player.speed;
-            }
-            if ((keys['ArrowDown'] || keys['s']) && player.y < canvas.height - player.radius) {
-                player.y += player.speed;
-            }
+            if ((keys['ArrowLeft'] || keys['a']) && player.x > 10) player.x -= player.speed;
+            if ((keys['ArrowRight'] || keys['d']) && player.x < canvas.width - 10) player.x += player.speed;
+            if ((keys['ArrowUp'] || keys['w']) && player.y > 10) player.y -= player.speed;
+            if ((keys['ArrowDown'] || keys['s']) && player.y < canvas.height - 10) player.y += player.speed;
+
+            // 弾の移動と画面外削除
+            bullets.forEach((b, index) => {
+                b.y -= b.speed;
+                if (b.y < 0) bullets.splice(index, 1);
+            });
         }
 
-        // 描画処理
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 自機の描画（東方風の当たり判定が見える赤い丸）
-            ctx.fillStyle = player.color;
+            // 弾の描画
+            ctx.fillStyle = 'yellow';
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 自機の描画
+            ctx.fillStyle = 'red';
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
             ctx.fill();
-
-            // 当たり判定の中心（白い点）
             ctx.fillStyle = 'white';
             ctx.beginPath();
             ctx.arc(player.x, player.y, 2, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // メインループ
         function loop() {
             update();
             draw();
