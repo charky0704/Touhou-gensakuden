@@ -33,22 +33,22 @@
             font-size: 14px;
         }
         .ui-section {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         .ui-label {
             color: #aaa;
             font-size: 11px;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
         .ui-value {
             color: #fff;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 弾幕実験場</h1>
+    <h1>東方幻作伝 〜 グレイズ＆アイテム実験場</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="384" height="448"></canvas>
@@ -59,10 +59,10 @@
                 <div id="score-val" class="ui-value">00000000</div>
             </div>
             <div class="ui-section">
-                <div class="ui-label">HISCORE</div>
-                <div class="ui-value">10000000</div>
+                <div class="ui-label">GRAZE</div>
+                <div id="graze-val" class="ui-value" style="color: #00ffcc;">0</div>
             </div>
-            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+            <hr style="border:0; border-top:1px solid #333; margin:12px 0;">
             <div class="ui-section">
                 <div class="ui-label">PLAYER</div>
                 <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
@@ -71,16 +71,16 @@
                 <div class="ui-label">BOMB</div>
                 <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
             </div>
-            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+            <hr style="border:0; border-top:1px solid #333; margin:12px 0;">
             <div class="ui-section">
                 <div class="ui-label">POWER</div>
-                <div class="ui-value" style="color: #ffff55;">1.00</div>
+                <div id="power-val" class="ui-value" style="color: #ffff55;">1.00</div>
             </div>
         </div>
     </div>
 
     <p style="margin-top: 15px; font-size: 13px; color: #ccc;">
-        矢印キー：移動 / Shiftキー：低速移動（コア表示） / Zキー：お札連射
+        矢印キー：移動 / Shiftキー：低速移動（アイテム自動回収ラインあり！） / Zキー：お札連射
     </p>
 
     <script>
@@ -92,19 +92,22 @@
             y: canvas.height - 60, 
             normalSpeed: 4.5, 
             slowSpeed: 2, 
-            radius: 3,       // 当たり判定の半径（コアの小ささ）
+            radius: 3,
             lives: 5,
             bombs: 3,
             score: 0,
-            invincible: 0    // 被弾後の無敵時間タイマー
+            graze: 0,
+            power: 1.00,
+            invincible: 0
         };
 
         let bullets = [];
-        let enemyBullets = []; // 敵の弾
+        let enemyBullets = [];
+        let items = []; // 点やPアイテム
         let enemies = [
-            { x: 96,  y: 80, radius: 15, hp: 15, shootTimer: 0 },
-            { x: 192, y: 60, radius: 15, hp: 15, shootTimer: 30 },
-            { x: 288, y: 80, radius: 15, hp: 15, shootTimer: 60 }
+            { x: 96,  y: 80, radius: 15, hp: 20, shootTimer: 0 },
+            { x: 192, y: 60, radius: 15, hp: 20, shootTimer: 25 },
+            { x: 288, y: 80, radius: 15, hp: 20, shootTimer: 50 }
         ];
         let keys = {};
         let shootInterval = 0;
@@ -116,32 +119,59 @@
         function resetPlayer() {
             player.x = canvas.width / 2;
             player.y = canvas.height - 60;
-            player.invincible = 120; // 復活後約2秒間の無敵
+            player.invincible = 120;
+        }
+
+        // 敵を倒したときにアイテムをばらまく
+        function dropItems(x, y) {
+            // Pアイテムを2個、点アイテムを3個生成
+            for (let i = 0; i < 2; i++) {
+                items.push({
+                    x: x + (Math.random() - 0.5) * 30,
+                    y: y + (Math.random() - 0.5) * 20,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: -3 - Math.random() * 2, // 一度上に跳ねる
+                    type: 'P'
+                });
+            }
+            for (let i = 0; i < 3; i++) {
+                items.push({
+                    x: x + (Math.random() - 0.5) * 30,
+                    y: y + (Math.random() - 0.5) * 20,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: -3 - Math.random() * 2,
+                    type: 'point'
+                });
+            }
         }
 
         function update() {
             if (gameOver) return;
 
-            // 無敵時間のカウントダウン
-            if (player.invincible > 0) {
-                player.invincible--;
-            }
+            if (player.invincible > 0) player.invincible--;
 
             let currentSpeed = keys['shift'] ? player.slowSpeed : player.normalSpeed;
 
-            // 移動処理
             if ((keys['arrowleft'] || keys['a']) && player.x > 12) player.x -= currentSpeed;
             if ((keys['arrowright'] || keys['d']) && player.x < canvas.width - 12) player.x += currentSpeed;
             if ((keys['arrowup'] || keys['w']) && player.y > 12) player.y -= currentSpeed;
             if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 12) player.y += currentSpeed;
 
-            // Zキーで自機弾の発射
+            // Zキーでパワーに応じた本数のお札を発射
             if (keys['z']) {
                 shootInterval++;
-                if (shootInterval >= 5) {
-                    let offset = keys['shift'] ? 5 : 10;
-                    bullets.push({ x: player.x - offset, y: player.y - 8, speed: 12, angle: -Math.PI / 2 });
-                    bullets.push({ x: player.x + offset, y: player.y - 8, speed: 12, angle: -Math.PI / 2 });
+                let intervalLimit = player.power >= 2.0 ? 4 : 5; // パワーが高いと連射力アップ
+                if (shootInterval >= intervalLimit) {
+                    let count = player.power >= 2.0 ? 3 : 2; // パワー2.0以上で3wayに！
+                    if (count === 2) {
+                        let offset = keys['shift'] ? 5 : 10;
+                        bullets.push({ x: player.x - offset, y: player.y - 8, speed: 12, angle: -Math.PI / 2 });
+                        bullets.push({ x: player.x + offset, y: player.y - 8, speed: 12, angle: -Math.PI / 2 });
+                    } else {
+                        bullets.push({ x: player.x - 12, y: player.y - 8, speed: 12, angle: -Math.PI / 2 - 0.08 });
+                        bullets.push({ x: player.x,      y: player.y - 8, speed: 12, angle: -Math.PI / 2 });
+                        bullets.push({ x: player.x + 12, y: player.y - 8, speed: 12, angle: -Math.PI / 2 + 0.08 });
+                    }
                     shootInterval = 0;
                 }
             } else {
@@ -159,7 +189,6 @@
                     continue;
                 }
 
-                // 敵との当たり判定
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     let e = enemies[j];
                     let dist = Math.hypot(e.x - b.x, e.y - b.y);
@@ -167,26 +196,29 @@
                         e.hp -= 1;
                         bullets.splice(i, 1);
                         if (e.hp <= 0) {
+                            dropItems(e.x, e.y);
                             enemies.splice(j, 1);
-                            player.score += 100;
+                            player.score += 200;
                         }
                         break;
                     }
                 }
             }
 
-            // 敵の行動と弾幕発射
+            // 敵の弾幕発射
             enemies.forEach(e => {
                 e.shootTimer++;
-                // 一定間隔で自機めがけて弾を発射
-                if (e.shootTimer >= 40) {
+                if (e.shootTimer >= 35) {
                     let angle = Math.atan2(player.y - e.y, player.x - e.x);
-                    enemyBullets.push({ x: e.x, y: e.y, speed: 3.5, angle: angle });
+                    // ちょっと扇状に3way弾を撃たせる
+                    enemyBullets.push({ x: e.x, y: e.y, speed: 3.5, angle: angle - 0.15, grazed: false });
+                    enemyBullets.push({ x: e.x, y: e.y, speed: 3.5, angle: angle,        grazed: false });
+                    enemyBullets.push({ x: e.x, y: e.y, speed: 3.5, angle: angle + 0.15, grazed: false });
                     e.shootTimer = 0;
                 }
             });
 
-            // 敵弾の移動と自機との当たり判定
+            // 敵弾の移動、グレイズ判定、被弾判定
             for (let i = enemyBullets.length - 1; i >= 0; i--) {
                 let eb = enemyBullets[i];
                 eb.x += Math.cos(eb.angle) * eb.speed;
@@ -197,37 +229,78 @@
                     continue;
                 }
 
-                // 自機との当たり判定（無敵中でなければミス）
-                if (player.invincible === 0) {
-                    let dist = Math.hypot(player.x - eb.x, player.y - eb.y);
-                    if (dist < player.radius + 3) {
-                        // 被弾（ミス）！
-                        player.lives--;
-                        enemyBullets.splice(i, 1); // 当たった弾を消す
-                        if (player.lives <= 0) {
-                            gameOver = true;
+                let distToPlayer = Math.hypot(player.x - eb.x, player.y - eb.y);
+
+                // グレイズ判定（当たり判定より外側、かつ一定距離以内かつ、まだ掠っていない弾）
+                if (!eb.grazed && distToPlayer < player.radius + 14 && distToPlayer >= player.radius + 3) {
+                    player.graze++;
+                    player.score += 50; // グレイズボーナス
+                    eb.grazed = true;   // 1発につき1回だけグレイズ
+                }
+
+                // 被弾判定
+                if (player.invincible === 0 && distToPlayer < player.radius + 3) {
+                    player.lives--;
+                    enemyBullets.splice(i, 1);
+                    if (player.lives <= 0) {
+                        gameOver = true;
+                    } else {
+                        resetPlayer();
+                    }
+                    break;
+                }
+            }
+
+            // アイテムの移動と回収判定
+            for (let i = items.length - 1; i >= 0; i--) {
+                let it = items[i];
+                it.vy += 0.15; // 重力
+                it.x += it.vx;
+                it.y += it.vy;
+
+                // 画面下部に落ちたら消す
+                if (it.y > canvas.height + 20) {
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                // 自機との距離
+                let dist = Math.hypot(player.x - it.x, player.y - it.y);
+                // 近づくか、画面上部（アイテム回収ライン）にいるか
+                if (dist < 18 || player.y < 80) {
+                    // 吸い寄せられる動き
+                    let angle = Math.atan2(player.y - it.y, player.x - it.x);
+                    it.x += Math.cos(angle) * 7;
+                    it.y += Math.sin(angle) * 7;
+
+                    if (dist < 10) {
+                        if (it.type === 'P') {
+                            player.power = Math.min(4.00, player.power + 0.05);
                         } else {
-                            resetPlayer(); // 残機があれば復活して無敵へ
+                            player.score += 1000; // 点アイテムは高得点！
                         }
-                        break;
+                        items.splice(i, 1);
+                        continue;
                     }
                 }
             }
 
             // 敵が全滅したら復活
             if (enemies.length === 0) {
-                player.score += 500;
+                player.score += 1000;
                 enemies = [
-                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 15, shootTimer: 0 },
-                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 15, shootTimer: 20 },
-                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 15, shootTimer: 40 }
+                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 20, shootTimer: 0 },
+                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 20, shootTimer: 15 },
+                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 20, shootTimer: 30 }
                 ];
             }
 
             // UI更新
             document.getElementById('score-val').innerText = String(player.score).padStart(8, '0');
+            document.getElementById('graze-val').innerText = player.graze;
             document.getElementById('lives-val').innerText = gameOver ? 'DEAD' : '★'.repeat(Math.max(0, player.lives));
             document.getElementById('bombs-val').innerText = '★'.repeat(Math.max(0, player.bombs));
+            document.getElementById('power-val').innerText = player.power.toFixed(2);
         }
 
         function draw() {
@@ -242,6 +315,26 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '10px sans-serif';
                 ctx.fillText(`HP:${e.hp}`, e.x - 12, e.y - 18);
+            });
+
+            // アイテムの描画（Pは黄色、点アイテムは青/白）
+            items.forEach(it => {
+                ctx.beginPath();
+                if (it.type === 'P') {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.arc(it.x, it.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 9px sans-serif';
+                    ctx.fillText('P', it.x - 3, it.y + 3);
+                } else {
+                    ctx.fillStyle = '#00aaff';
+                    ctx.arc(it.x, it.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 8px sans-serif';
+                    ctx.fillText('点', it.x - 5, it.y + 3);
+                }
             });
 
             // 自機弾の描画
@@ -262,22 +355,28 @@
                 ctx.fill();
             });
 
-            // 自機の描画（無敵中なら点滅）
+            // 自機の描画
             if (player.invincible === 0 || Math.floor(player.invincible / 4) % 2 === 0) {
                 ctx.fillStyle = '#ff3333';
                 ctx.beginPath();
                 ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
                 ctx.fill();
 
-                // コア（当たり判定）の描画
                 if (keys['shift']) {
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
                     ctx.arc(player.x, player.y, 2.5, 0, Math.PI * 2);
                     ctx.fill();
                     
-                    ctx.strokeStyle = '#00ffff';
+                    // グレイズ判定の範囲（うっすら円を表示）
+                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
                     ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(player.x, player.y, 14, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // 当たり判定のコア
+                    ctx.strokeStyle = '#00ffff';
                     ctx.beginPath();
                     ctx.arc(player.x, player.y, 10, 0, Math.PI * 2);
                     ctx.stroke();
@@ -300,7 +399,7 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '14px sans-serif';
                 ctx.fillText('F5キーでリトライ', canvas.width / 2, canvas.height / 2 + 30);
-                ctx.textAlign = 'left'; // 戻す
+                ctx.textAlign = 'left';
             }
         }
 
