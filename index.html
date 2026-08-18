@@ -9,8 +9,8 @@
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 Danmaku Prototype</h1>
-    <p>矢印キー：移動 / Zキー長押し：連射ショット</p>
+    <h1>東方幻作伝 〜 ホーミングアミュレット実験場</h1>
+    <p>矢印キー：移動 / Zキー長押し：お札連射（敵を追尾！）</p>
     <canvas id="gameCanvas" width="480" height="640"></canvas>
 
     <script>
@@ -19,8 +19,13 @@
 
         let player = { x: 240, y: 560, speed: 5, radius: 6 };
         let bullets = [];
+        let enemies = [
+            { x: 120, y: 100, radius: 15, hp: 10 },
+            { x: 240, y: 80,  radius: 15, hp: 10 },
+            { x: 360, y: 100, radius: 15, hp: 10 }
+        ];
         let keys = {};
-        let shootInterval = 0; // 連射間隔を調整するタイマー
+        let shootInterval = 0;
 
         window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
@@ -32,38 +37,116 @@
             if ((keys['arrowup'] || keys['w']) && player.y > 10) player.y -= player.speed;
             if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 10) player.y += player.speed;
 
-            // Zキーが押されている間、一定間隔で自動連射
+            // Zキーでホーミング弾を発射
             if (keys['z']) {
                 shootInterval++;
-                if (shootInterval >= 5) { // 数値を小さくすると超連射、大きくすると連射が遅くなる
-                    bullets.push({ x: player.x, y: player.y - 10, speed: 10 });
+                if (shootInterval >= 6) {
+                    // 最も近い敵を探す
+                    let target = null;
+                    let minDist = Infinity;
+                    enemies.forEach(e => {
+                        let dist = Math.hypot(e.x - player.x, e.y - player.y);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            target = e;
+                        }
+                    });
+
+                    // 弾の初期角度（敵がいなければ真上）
+                    let angle = -Math.PI / 2;
+                    if (target) {
+                        angle = Math.atan2(target.y - player.y, target.x - player.x);
+                    }
+
+                    bullets.push({
+                        x: player.x,
+                        y: player.y - 10,
+                        speed: 7,
+                        angle: angle,
+                        target: target
+                    });
                     shootInterval = 0;
                 }
             } else {
-                shootInterval = 0; // 離したらリセット
+                shootInterval = 0;
             }
 
-            // 弾の移動と画面外削除
+            // 弾の移動と追尾処理
             for (let i = bullets.length - 1; i >= 0; i--) {
-                bullets[i].y -= bullets[i].speed;
-                if (bullets[i].y < 0) {
-                    bullets.splice(i, 1);
+                let b = bullets[i];
+
+                // 敵が生き残っていれば軽く曲がる（ホーミング）
+                if (b.target && enemies.includes(b.target)) {
+                    let targetAngle = Math.atan2(b.target.y - b.y, b.target.x - b.x);
+                    // 角度を少しずつターゲットへ寄せる
+                    let angleDiff = targetAngle - b.angle;
+                    // -PIからPIの範囲に調整
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    b.angle += angleDiff * 0.15; // 追従の強さ
                 }
+
+                // 速度と角度から座標を更新
+                b.x += Math.cos(b.angle) * b.speed;
+                b.y += Math.sin(b.angle) * b.speed;
+
+                // 画面外に出たら消す
+                if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                // 敵との当たり判定
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    let e = enemies[j];
+                    let dist = Math.hypot(e.x - b.x, e.y - b.y);
+                    if (dist < e.radius + 4) {
+                        e.hp -= 1;
+                        bullets.splice(i, 1); // 弾を消す
+                        if (e.hp <= 0) {
+                            enemies.splice(j, 1); // 敵を倒す
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // 敵が全滅したらリスポーンさせる
+            if (enemies.length === 0) {
+                enemies = [
+                    { x: 100 + Math.random() * 280, y: 80 + Math.random() * 50, radius: 15, hp: 10 },
+                    { x: 100 + Math.random() * 280, y: 80 + Math.random() * 50, radius: 15, hp: 10 },
+                    { x: 100 + Math.random() * 280, y: 80 + Math.random() * 50, radius: 15, hp: 10 }
+                ];
             }
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 弾の描画
-            ctx.fillStyle = 'yellow';
-            bullets.forEach(b => {
+            // 敵の描画
+            ctx.fillStyle = 'purple';
+            enemies.forEach(e => {
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(`HP:${e.hp}`, e.x - 12, e.y - 18);
+                ctx.fillStyle = 'purple';
             });
 
-            // 自機の描画
+            // お札（弾）の描画
+            ctx.fillStyle = '#00ffcc';
+            bullets.forEach(b => {
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(b.angle + Math.PI / 2);
+                ctx.fillRect(-3, -6, 6, 12); // お札っぽい長方形
+                ctx.restore();
+            });
+
+            // 自機の描画（霊夢風の赤白）
             ctx.fillStyle = 'red';
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
