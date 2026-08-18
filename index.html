@@ -9,8 +9,8 @@
     </style>
 </head>
 <body>
-    <h1>東方幻作伝</h1>
-    <p>矢印キー：移動 / Zキー：ショット</p>
+    <h1>東方幻作伝 〜 Danmaku Prototype</h1>
+    <p>矢印キー：移動 / Zキー長押し：連射ショット</p>
     <canvas id="gameCanvas" width="480" height="640"></canvas>
 
     <script>
@@ -18,29 +18,38 @@
         const ctx = canvas.getContext('2d');
 
         let player = { x: 240, y: 560, speed: 5, radius: 6 };
-        let bullets = []; // 弾を保存しておく配列
+        let bullets = [];
         let keys = {};
+        let shootInterval = 0; // 連射間隔を調整するタイマー
 
-        window.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-            // Zキーが押されたら弾を生成
-            if (e.key === 'z' || e.key === 'Z') {
-                bullets.push({ x: player.x, y: player.y - 10, speed: 8 });
-            }
-        });
-        window.addEventListener('keyup', (e) => keys[e.key] = false);
+        window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
         function update() {
-            if ((keys['ArrowLeft'] || keys['a']) && player.x > 10) player.x -= player.speed;
-            if ((keys['ArrowRight'] || keys['d']) && player.x < canvas.width - 10) player.x += player.speed;
-            if ((keys['ArrowUp'] || keys['w']) && player.y > 10) player.y -= player.speed;
-            if ((keys['ArrowDown'] || keys['s']) && player.y < canvas.height - 10) player.y += player.speed;
+            // 移動処理
+            if ((keys['arrowleft'] || keys['a']) && player.x > 10) player.x -= player.speed;
+            if ((keys['arrowright'] || keys['d']) && player.x < canvas.width - 10) player.x += player.speed;
+            if ((keys['arrowup'] || keys['w']) && player.y > 10) player.y -= player.speed;
+            if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 10) player.y += player.speed;
+
+            // Zキーが押されている間、一定間隔で自動連射
+            if (keys['z']) {
+                shootInterval++;
+                if (shootInterval >= 5) { // 数値を小さくすると超連射、大きくすると連射が遅くなる
+                    bullets.push({ x: player.x, y: player.y - 10, speed: 10 });
+                    shootInterval = 0;
+                }
+            } else {
+                shootInterval = 0; // 離したらリセット
+            }
 
             // 弾の移動と画面外削除
-            bullets.forEach((b, index) => {
-                b.y -= b.speed;
-                if (b.y < 0) bullets.splice(index, 1);
-            });
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                if (bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
         }
 
         function draw() {
