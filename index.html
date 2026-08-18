@@ -4,25 +4,109 @@
     <meta charset="UTF-8">
     <title>東方幻作伝</title>
     <style>
-        body { background-color: #111; color: #fff; text-align: center; font-family: sans-serif; margin-top: 20px; }
-        canvas { background-color: #000; display: block; margin: 0 auto; border: 2px solid #555; }
+        body { 
+            background-color: #1a1a1a; 
+            color: #fff; 
+            text-align: center; 
+            font-family: 'Courier New', monospace; 
+            margin: 0;
+            padding-top: 20px;
+        }
+        h1 { margin: 5px 0 15px 0; font-size: 22px; letter-spacing: 2px; color: #ffccff; }
+        /* ゲーム全体を横並びにするコンテナ */
+        #game-container {
+            display: inline-flex;
+            background-color: #000;
+            border: 3px solid #666;
+            box-shadow: 0 0 20px rgba(255,100,200,0.3);
+        }
+        canvas { 
+            background-color: #05050f; 
+            display: block; 
+        }
+        /* 右側の情報パネル（本家風） */
+        #ui-panel {
+            width: 180px;
+            background-color: #111;
+            border-left: 2px solid #444;
+            padding: 15px;
+            text-align: left;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .ui-section {
+            margin-bottom: 20px;
+        }
+        .ui-label {
+            color: #aaa;
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+        .ui-value {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 霊夢装備実験場</h1>
-    <p>矢印キー：移動 / Shiftキー：低速移動 / Zキー：2方向お札連射</p>
-    <canvas id="gameCanvas" width="480" height="640"></canvas>
+    <h1>東方幻作伝 〜 Danmaku Prototype</h1>
+    
+    <div id="game-container">
+        <!-- プレイ画面（キャンバス） -->
+        <canvas id="gameCanvas" width="384" height="448"></canvas>
+        
+        <!-- 本家風の右側ステータスパネル -->
+        <div id="ui-panel">
+            <div class="ui-section">
+                <div class="ui-label">SCORE</div>
+                <div id="score-val" class="ui-value">00000000</div>
+            </div>
+            <div class="ui-section">
+                <div class="ui-label">HISCORE</div>
+                <div class="ui-value">10000000</div>
+            </div>
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+            <div class="ui-section">
+                <div class="ui-label">PLAYER</div>
+                <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
+            </div>
+            <div class="ui-section">
+                <div class="ui-label">BOMB</div>
+                <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
+            </div>
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+            <div class="ui-section">
+                <div class="ui-label">POWER</div>
+                <div class="ui-value" style="color: #ffff55;">1.00</div>
+            </div>
+        </div>
+    </div>
+
+    <p style="margin-top: 15px; font-size: 13px; color: #ccc;">
+        矢印キー：移動 / Shiftキー：低速移動 / Zキー：お札連射
+    </p>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        let player = { x: 240, y: 560, normalSpeed: 5, slowSpeed: 2, radius: 4 };
+        let player = { 
+            x: canvas.width / 2, 
+            y: canvas.height - 60, 
+            normalSpeed: 4.5, 
+            slowSpeed: 2, 
+            radius: 3.5,
+            lives: 5,
+            bombs: 3,
+            score: 0
+        };
+
         let bullets = [];
         let enemies = [
-            { x: 120, y: 100, radius: 15, hp: 15 },
-            { x: 240, y: 80,  radius: 15, hp: 15 },
-            { x: 360, y: 100, radius: 15, hp: 15 }
+            { x: 96,  y: 80, radius: 15, hp: 15 },
+            { x: 192, y: 60, radius: 15, hp: 15 },
+            { x: 288, y: 80, radius: 15, hp: 15 }
         ];
         let keys = {};
         let shootInterval = 0;
@@ -31,26 +115,21 @@
         window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
         function update() {
-            // Shiftキーが押されているかでスピードを切り替え（低速移動）
             let currentSpeed = keys['shift'] ? player.slowSpeed : player.normalSpeed;
 
             // 移動処理
-            if ((keys['arrowleft'] || keys['a']) && player.x > 10) player.x -= currentSpeed;
-            if ((keys['arrowright'] || keys['d']) && player.x < canvas.width - 10) player.x += currentSpeed;
-            if ((keys['arrowup'] || keys['w']) && player.y > 10) player.y -= currentSpeed;
-            if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 10) player.y += currentSpeed;
+            if ((keys['arrowleft'] || keys['a']) && player.x > 12) player.x -= currentSpeed;
+            if ((keys['arrowright'] || keys['d']) && player.x < canvas.width - 12) player.x += currentSpeed;
+            if ((keys['arrowup'] || keys['w']) && player.y > 12) player.y -= currentSpeed;
+            if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 12) player.y += currentSpeed;
 
             // Zキーで2方向のお札を発射
             if (keys['z']) {
                 shootInterval++;
                 if (shootInterval >= 5) {
-                    // 高速時は少し外側に広がり、低速時は真直ぐ近くを飛ぶような調整も可能
-                    let offset = keys['shift'] ? 6 : 12;
-
-                    // 左右2発を同時に生成（真上に向かって発射）
-                    bullets.push({ x: player.x - offset, y: player.y - 10, speed: 12, angle: -Math.PI / 2 });
-                    bullets.push({ x: player.x + offset, y: player.y - 10, speed: 12, angle: -Math.PI / 2 });
-                    
+                    let offset = keys['shift'] ? 5 : 10;
+                    bullets.push({ x: player.x - offset, y: player.y - 8, speed: 12, angle: -Math.PI / 2 });
+                    bullets.push({ x: player.x + offset, y: player.y - 8, speed: 12, angle: -Math.PI / 2 });
                     shootInterval = 0;
                 }
             } else {
@@ -63,7 +142,6 @@
                 b.x += Math.cos(b.angle) * b.speed;
                 b.y += Math.sin(b.angle) * b.speed;
 
-                // 画面外に出たら消す
                 if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
                     bullets.splice(i, 1);
                     continue;
@@ -78,27 +156,34 @@
                         bullets.splice(i, 1);
                         if (e.hp <= 0) {
                             enemies.splice(j, 1);
+                            player.score += 100;
                         }
                         break;
                     }
                 }
             }
 
-            // 敵が全滅したら復活
+            // 敵が全滅したら復活 ＆ スコアラージボーナス
             if (enemies.length === 0) {
+                player.score += 500;
                 enemies = [
-                    { x: 100 + Math.random() * 280, y: 80 + Math.random() * 50, radius: 15, hp: 15 },
-                    { x: 100 + Math.random() * 280, y: 80 + Math.random() * 50, radius: 15, hp: 15 },
-                    { x: 100 + Math.random() * 280, y: 80 + Math.random() * 50, radius: 15, hp: 15 }
+                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 15 },
+                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 15 },
+                    { x: 80 + Math.random() * 220,  y: 60 + Math.random() * 40, radius: 15, hp: 15 }
                 ];
             }
+
+            // HTML側のUI数値をリアルタイム更新
+            document.getElementById('score-val').innerText = String(player.score).padStart(8, '0');
+            document.getElementById('lives-val').innerText = '★'.repeat(Math.max(0, player.lives));
+            document.getElementById('bombs-val').innerText = '★'.repeat(Math.max(0, player.bombs));
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 敵の描画
-            ctx.fillStyle = 'purple';
+            ctx.fillStyle = '#cc44ff';
             enemies.forEach(e => {
                 ctx.beginPath();
                 ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
@@ -114,31 +199,32 @@
                 ctx.save();
                 ctx.translate(b.x, b.y);
                 ctx.rotate(b.angle + Math.PI / 2);
-                ctx.fillRect(-3, -6, 6, 12);
+                ctx.fillRect(-2, -5, 4, 10);
                 ctx.restore();
             });
 
-            // 自機の描画（Shiftを押すと当たり判定の白い点がハッキリ見える東方仕様）
-            ctx.fillStyle = 'red';
+            // 自機の描画
+            ctx.fillStyle = '#ff3333';
             ctx.beginPath();
-            ctx.arc(player.x, player.y, 6, 0, Math.PI * 2);
+            ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
             ctx.fill();
 
+            // 低速移動時の当たり判定コア（本家おなじみの赤白デザイン）
             if (keys['shift']) {
-                // 低速移動中は当たり判定（白いコア）を強調
                 ctx.fillStyle = 'white';
                 ctx.beginPath();
-                ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, 2.5, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.strokeStyle = 'cyan';
+                
+                ctx.strokeStyle = '#00ffff';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.arc(player.x, player.y, player.radius + 3, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, 10, 0, Math.PI * 2);
                 ctx.stroke();
             } else {
                 ctx.fillStyle = 'white';
                 ctx.beginPath();
-                ctx.arc(player.x, player.y, 2, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, 1.5, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
