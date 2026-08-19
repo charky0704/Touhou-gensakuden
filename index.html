@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 大画面版</title>
+    <title>東方幻作伝 〜 ワイド画面版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -48,11 +48,11 @@
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 大画面版</h1>
+    <h1>東方幻作伝 〜 ワイド画面版</h1>
     
     <div id="game-container">
-        <!-- 画面サイズを 480 × 560 に拡大 -->
-        <canvas id="gameCanvas" width="480" height="560"></canvas>
+        <!-- プレイ画面の横幅を 640px に拡大 -->
+        <canvas id="gameCanvas" width="640" height="560"></canvas>
         
         <div id="ui-panel">
             <div class="ui-section">
@@ -162,9 +162,9 @@
                 shootInterval = 0;
             }
 
-            // ザコ敵の出現
+            // ザコ敵の出現（広くなった画面全体からランダム出現）
             spawnTimer++;
-            if (spawnTimer > 45) {
+            if (spawnTimer > 40) {
                 enemies.push({
                     x: Math.random() * (canvas.width - 60) + 30,
                     y: -10,
@@ -297,7 +297,7 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 上部の回収ライン（Y = 100）
+            // 回収ライン
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
