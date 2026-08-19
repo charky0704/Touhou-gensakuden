@@ -231,6 +231,19 @@
                     continue;
                 }
 
+                // 敵本体と自機の当たり判定（追加部分）
+                let distToEnemy = Math.hypot(player.x - e.x, player.y - e.y);
+                if (player.invincible === 0 && distToEnemy < e.radius + player.radius) {
+                    player.lives--;
+                    enemies.splice(i, 1);
+                    if (player.lives <= 0) {
+                        gameOver = true;
+                    } else {
+                        resetPlayer();
+                    }
+                    continue;
+                }
+
                 e.shootTimer++;
                 if (e.shootTimer > 180) {
                     let angle = Math.atan2(player.y - e.y, player.x - e.x);
