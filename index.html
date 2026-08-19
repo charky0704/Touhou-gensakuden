@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 攻撃頻度調整版</title>
+    <title>東方幻作伝 〜 ボム実装版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -48,7 +48,7 @@
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 攻撃頻度調整版</h1>
+    <h1>東方幻作伝 〜 ボム実装版</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="640" height="560"></canvas>
@@ -80,7 +80,7 @@
     </div>
 
     <p style="margin-top: 15px; font-size: 13px; color: #ccc;">
-        矢印キー：移動 / Shift：低速移動（画面上部でアイテム全回収！） / Z：お札＆追尾弾連射
+        矢印キー：移動 / Shift：低速移動 / Z：ショット / X：ボム（画面全体の弾消去＆ダメージ）
     </p>
 
     <script>
@@ -110,6 +110,7 @@
         let keys = {};
         let shootInterval = 0;
         let gameOver = false;
+        let bombActiveTimer = 0;
 
         window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
@@ -161,6 +162,7 @@
             if ((keys['arrowup'] || keys['w']) && player.y > 12) player.y -= spd;
             if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 12) player.y += spd;
 
+            // ショット処理
             if (keys['z']) {
                 shootInterval++;
                 let threshold = isSlow ? 4 : 6;
@@ -185,6 +187,32 @@
                 shootInterval = 0;
             }
 
+            // ボム発動処理
+            if (keys['x'] && player.bombs > 0 && bombActiveTimer === 0) {
+                player.bombs--;
+                bombActiveTimer = 90;
+            }
+
+            if (bombActiveTimer > 0) {
+                bombActiveTimer--;
+                enemyBullets = []; // 敵弾全消去
+                
+                // 画面上の敵すべてに大ダメージ
+                enemies.forEach(e => {
+                    e.hp -= 0.15;
+                });
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    if (enemies[j].hp <= 0) {
+                        dropItems(enemies[j].x, enemies[j].y);
+                        enemies.splice(j, 1);
+                        player.score += 200;
+                    }
+                }
+                player.invincible = Math.max(player.invincible, 10);
+            }
+
+            // 敵の出現
             spawnTimer++;
             if (spawnTimer > 60) {
                 enemies.push({
@@ -198,6 +226,7 @@
                 spawnTimer = 0;
             }
 
+            // 敵の移動と攻撃
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
                 e.y += e.vy;
@@ -208,7 +237,6 @@
                 }
 
                 e.shootTimer++;
-                // 攻撃頻度を下げる（110 -> 180フレームに延長）
                 if (e.shootTimer > 180) {
                     let angle = Math.atan2(player.y - e.y, player.x - e.x);
                     enemyBullets.push({
@@ -221,6 +249,7 @@
                 }
             }
 
+            // 自機通常弾
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.y += b.vy;
@@ -244,9 +273,9 @@
                 }
             }
 
+            // 追尾弾
             for (let i = homingBullets.length - 1; i >= 0; i--) {
                 let hb = homingBullets[i];
-
                 let target = null;
                 let minDist = 9999;
 
@@ -301,6 +330,7 @@
                 }
             }
 
+            // 敵弾処理
             for (let i = enemyBullets.length - 1; i >= 0; i--) {
                 let eb = enemyBullets[i];
                 eb.x += eb.vx;
@@ -331,6 +361,7 @@
                 }
             }
 
+            // アイテム処理
             for (let i = items.length - 1; i >= 0; i--) {
                 let it = items[i];
 
@@ -357,6 +388,7 @@
                 }
             }
 
+            // UI更新
             document.getElementById('score-val').innerText = String(player.score).padStart(8, '0');
             document.getElementById('graze-val').innerText = player.graze;
             document.getElementById('lives-val').innerText = gameOver ? 'DEAD' : '★'.repeat(Math.max(0, player.lives));
@@ -367,6 +399,7 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // 回収ライン
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
@@ -375,6 +408,7 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
+            // 敵描画
             enemies.forEach(e => {
                 ctx.fillStyle = '#cc44ff';
                 ctx.beginPath();
@@ -382,6 +416,7 @@
                 ctx.fill();
             });
 
+            // アイテム描画
             items.forEach(it => {
                 ctx.beginPath();
                 if (it.type === 'P') {
@@ -401,11 +436,13 @@
                 }
             });
 
+            // 自機通常弾描画
             ctx.fillStyle = '#00ffcc';
             bullets.forEach(b => {
                 ctx.fillRect(b.x - 2, b.y - 6, 4, 12);
             });
 
+            // 追尾弾描画
             homingBullets.forEach(hb => {
                 let angle = Math.atan2(hb.vy, hb.vx);
                 ctx.save();
@@ -416,6 +453,7 @@
                 ctx.restore();
             });
 
+            // 敵弾描画
             ctx.fillStyle = '#ff5555';
             enemyBullets.forEach(eb => {
                 ctx.beginPath();
@@ -423,6 +461,7 @@
                 ctx.fill();
             });
 
+            // オプション描画
             let opts = getOptionPositions();
             opts.forEach(opt => {
                 ctx.strokeStyle = '#ff9900';
@@ -437,6 +476,7 @@
                 ctx.fill();
             });
 
+            // 自機描画
             if (player.invincible === 0 || Math.floor(player.invincible / 4) % 2 === 0) {
                 ctx.fillStyle = '#ff3333';
                 ctx.beginPath();
@@ -462,6 +502,22 @@
                 }
             }
 
+            // ボム描画エフェクト
+            if (bombActiveTimer > 0) {
+                let radius = (90 - bombActiveTimer) * 12;
+                ctx.fillStyle = 'rgba(100, 200, 255, 0.25)';
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // ゲームオーバー画面
             if (gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
