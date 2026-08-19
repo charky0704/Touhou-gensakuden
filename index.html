@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 敵小型化版</title>
+    <title>東方幻作伝 〜 攻撃頻度調整版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -48,7 +48,7 @@
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 敵小型化版</h1>
+    <h1>東方幻作伝 〜 攻撃頻度調整版</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="640" height="560"></canvas>
@@ -186,11 +186,11 @@
             }
 
             spawnTimer++;
-            if (spawnTimer > 50) {
+            if (spawnTimer > 60) {
                 enemies.push({
                     x: Math.random() * (canvas.width - 80) + 40,
                     y: -10,
-                    radius: 8, // 敵の半径を小さく変更 (元: 14)
+                    radius: 8,
                     hp: 6,
                     vy: 1.2,
                     shootTimer: 0
@@ -208,7 +208,8 @@
                 }
 
                 e.shootTimer++;
-                if (e.shootTimer > 110) {
+                // 攻撃頻度を下げる（110 -> 180フレームに延長）
+                if (e.shootTimer > 180) {
                     let angle = Math.atan2(player.y - e.y, player.x - e.x);
                     enemyBullets.push({
                         x: e.x, y: e.y,
@@ -248,11 +249,14 @@
 
                 let target = null;
                 let minDist = 9999;
+
                 enemies.forEach(e => {
-                    let d = Math.hypot(e.x - hb.x, e.y - hb.y);
-                    if (d < minDist) {
-                        minDist = d;
-                        target = e;
+                    if (e.y < hb.y) { 
+                        let d = Math.hypot(e.x - hb.x, e.y - hb.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            target = e;
+                        }
                     }
                 });
 
@@ -265,8 +269,13 @@
                     while (diff > Math.PI) diff -= Math.PI * 2;
 
                     let newAngle = currentAngle + diff * 0.08;
-                    hb.vx = Math.cos(newAngle) * hb.speed;
-                    hb.vy = Math.sin(newAngle) * hb.speed;
+                    let nextVx = Math.cos(newAngle) * hb.speed;
+                    let nextVy = Math.sin(newAngle) * hb.speed;
+
+                    if (nextVy < -2) {
+                        hb.vx = nextVx;
+                        hb.vy = nextVy;
+                    }
                 }
 
                 hb.x += hb.vx;
