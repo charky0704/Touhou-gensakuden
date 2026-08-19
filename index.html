@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 仕様調整版</title>
+    <title>東方幻作伝 〜 修正版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -31,12 +31,9 @@
             text-align: left;
             box-sizing: border-box;
             font-size: 15px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
         }
         .ui-section {
-            margin-bottom: 12px;
+            margin-bottom: 20px;
         }
         .ui-label {
             color: #aaa;
@@ -48,66 +45,42 @@
             font-size: 18px;
             font-weight: bold;
         }
-        /* 立ち絵表示用エリア */
-        #stand-character {
-            margin-top: auto;
-            text-align: center;
-            padding-top: 10px;
-            min-height: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        #stand-character img {
-            max-width: 100%;
-            height: auto;
-            max-height: 180px;
-            filter: drop-shadow(0 0 8px rgba(255,100,100,0.5));
-            display: block;
-        }
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 追尾角度＆シンプル落下版</h1>
+    <h1>東方幻作伝 〜 修正版</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="640" height="560"></canvas>
         
         <div id="ui-panel">
-            <div>
-                <div class="ui-section">
-                    <div class="ui-label">SCORE</div>
-                    <div id="score-val" class="ui-value">00000000</div>
-                </div>
-                <div class="ui-section">
-                    <div class="ui-label">GRAZE</div>
-                    <div id="graze-val" class="ui-value" style="color: #00ffcc;">0</div>
-                </div>
-                <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
-                <div class="ui-section">
-                    <div class="ui-label">PLAYER</div>
-                    <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
-                </div>
-                <div class="ui-section">
-                    <div class="ui-label">BOMB</div>
-                    <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
-                </div>
-                <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
-                <div class="ui-section">
-                    <div class="ui-label">POWER</div>
-                    <div id="power-val" class="ui-value" style="color: #ffff55;">1.00</div>
-                </div>
+            <div class="ui-section">
+                <div class="ui-label">SCORE</div>
+                <div id="score-val" class="ui-value">00000000</div>
             </div>
-
-            <!-- 立ち絵表示エリア -->
-            <div id="stand-character">
-                <img id="reimu-img" src=""C:\Users\chiam\OneDrive\画像\霊夢.png"
+            <div class="ui-section">
+                <div class="ui-label">GRAZE</div>
+                <div id="graze-val" class="ui-value" style="color: #00ffcc;">0</div>
+            </div>
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+            <div class="ui-section">
+                <div class="ui-label">PLAYER</div>
+                <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
+            </div>
+            <div class="ui-section">
+                <div class="ui-label">BOMB</div>
+                <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
+            </div>
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+            <div class="ui-section">
+                <div class="ui-label">POWER</div>
+                <div id="power-val" class="ui-value" style="color: #ffff55;">1.00</div>
             </div>
         </div>
     </div>
 
     <p style="margin-top: 15px; font-size: 13px; color: #ccc;">
-        矢印キー：移動 / Shift：低速移動 / Z：お札＆追尾弾連射
+        矢印キー：移動 / Shift：低速移動（画面上部でアイテム全回収！） / Z：お札＆追尾弾連射
     </p>
 
     <script>
@@ -148,7 +121,6 @@
         }
 
         function dropItems(x, y) {
-            // アイテムをその場からそのまま落下させる（ランダムな横飛びなし）
             items.push({ x: x - 6, y: y, vy: 1.8, type: 'P' });
             items.push({ x: x + 6, y: y, vy: 1.8, type: 'point' });
         }
@@ -193,11 +165,9 @@
                 shootInterval++;
                 let threshold = isSlow ? 4 : 6;
                 if (shootInterval >= threshold) {
-                    // 通常弾
                     bullets.push({ x: player.x - 6, y: player.y - 10, vy: -15 });
                     bullets.push({ x: player.x + 6, y: player.y - 10, vy: -15 });
 
-                    // オプションからの追尾弾（初期設定は真上）
                     let opts = getOptionPositions();
                     opts.forEach(opt => {
                         homingBullets.push({
@@ -215,7 +185,6 @@
                 shootInterval = 0;
             }
 
-            // ザコ敵生成
             spawnTimer++;
             if (spawnTimer > 50) {
                 enemies.push({
@@ -229,7 +198,6 @@
                 spawnTimer = 0;
             }
 
-            // ザコ敵更新（直進落下のみ）
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
                 e.y += e.vy;
@@ -252,7 +220,6 @@
                 }
             }
 
-            // 通常弾更新
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.y += b.vy;
@@ -276,7 +243,6 @@
                 }
             }
 
-            // 追尾弾更新（追尾性能 約30%に抑制）
             for (let i = homingBullets.length - 1; i >= 0; i--) {
                 let hb = homingBullets[i];
 
@@ -298,7 +264,6 @@
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
 
-                    // 追尾強度を約30%（0.08）にマイルド化
                     let newAngle = currentAngle + diff * 0.08;
                     hb.vx = Math.cos(newAngle) * hb.speed;
                     hb.vy = Math.sin(newAngle) * hb.speed;
@@ -327,7 +292,6 @@
                 }
             }
 
-            // 敵弾更新
             for (let i = enemyBullets.length - 1; i >= 0; i--) {
                 let eb = enemyBullets[i];
                 eb.x += eb.vx;
@@ -358,18 +322,25 @@
                 }
             }
 
-            // アイテム更新（そのまま直進落下）
+            // アイテム処理（上部全回収機能）
             for (let i = items.length - 1; i >= 0; i--) {
                 let it = items[i];
-                it.y += it.vy;
+
+                // 自機が回収ライン(Y=120)より上にいる場合、自機へ急速吸い寄せ
+                if (player.y <= 120) {
+                    let angle = Math.atan2(player.y - it.y, player.x - it.x);
+                    it.x += Math.cos(angle) * 16;
+                    it.y += Math.sin(angle) * 16;
+                } else {
+                    it.y += it.vy; // 通常時は下落
+                }
 
                 if (it.y > canvas.height + 20) {
                     items.splice(i, 1);
                     continue;
                 }
 
-                // 取得判定のみ
-                if (Math.hypot(player.x - it.x, player.y - it.y) < 16) {
+                if (Math.hypot(player.x - it.x, player.y - it.y) < 18) {
                     if (it.type === 'P') {
                         player.power = Math.min(4.00, player.power + 0.10);
                     } else {
@@ -379,7 +350,6 @@
                 }
             }
 
-            // UIテキスト更新
             document.getElementById('score-val').innerText = String(player.score).padStart(8, '0');
             document.getElementById('graze-val').innerText = player.graze;
             document.getElementById('lives-val').innerText = gameOver ? 'DEAD' : '★'.repeat(Math.max(0, player.lives));
@@ -390,7 +360,15 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // ザコ敵
+            // 回収ライン描画 (Y=120)
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, 120);
+            ctx.lineTo(canvas.width, 120);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
             enemies.forEach(e => {
                 ctx.fillStyle = '#cc44ff';
                 ctx.beginPath();
@@ -398,7 +376,6 @@
                 ctx.fill();
             });
 
-            // アイテム（落下中）
             items.forEach(it => {
                 ctx.beginPath();
                 if (it.type === 'P') {
@@ -418,24 +395,21 @@
                 }
             });
 
-            // 通常弾（直進）
             ctx.fillStyle = '#00ffcc';
             bullets.forEach(b => {
                 ctx.fillRect(b.x - 2, b.y - 6, 4, 12);
             });
 
-            // 追尾弾（進行方向へ先を向けて回転描画）
             homingBullets.forEach(hb => {
                 let angle = Math.atan2(hb.vy, hb.vx);
                 ctx.save();
                 ctx.translate(hb.x, hb.y);
-                ctx.rotate(angle + Math.PI / 2); // 縦長スプライトを進行方向に向ける
+                ctx.rotate(angle + Math.PI / 2);
                 ctx.fillStyle = '#00ffcc';
                 ctx.fillRect(-2, -6, 4, 12);
                 ctx.restore();
             });
 
-            // 敵弾
             ctx.fillStyle = '#ff5555';
             enemyBullets.forEach(eb => {
                 ctx.beginPath();
@@ -443,7 +417,6 @@
                 ctx.fill();
             });
 
-            // オプション
             let opts = getOptionPositions();
             opts.forEach(opt => {
                 ctx.strokeStyle = '#ff9900';
@@ -458,7 +431,6 @@
                 ctx.fill();
             });
 
-            // 自機
             if (player.invincible === 0 || Math.floor(player.invincible / 4) % 2 === 0) {
                 ctx.fillStyle = '#ff3333';
                 ctx.beginPath();
@@ -484,7 +456,6 @@
                 }
             }
 
-            // ゲームオーバー表示
             if (gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
