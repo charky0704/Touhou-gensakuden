@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 ワイド画面＆オプション実装版</title>
+    <title>東方幻作伝 〜 立ち絵追加版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -27,54 +27,76 @@
             width: 200px;
             background-color: #111;
             border-left: 2px solid #444;
-            padding: 20px;
+            padding: 20px 15px;
             text-align: left;
             box-sizing: border-box;
             font-size: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         .ui-section {
-            margin-bottom: 22px;
+            margin-bottom: 15px;
         }
         .ui-label {
             color: #aaa;
             font-size: 12px;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
         .ui-value {
             color: #fff;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
+        }
+        /* 立ち絵表示用エリア */
+        #stand-character {
+            margin-top: auto;
+            text-align: center;
+            padding-top: 10px;
+        }
+        #stand-character img {
+            max-width: 100%;
+            height: auto;
+            max-height: 180px;
+            filter: drop-shadow(0 0 8px rgba(255,100,100,0.5));
         }
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 オプション＆追尾弾版</h1>
+    <h1>東方幻作伝 〜 立ち絵追加版</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="640" height="560"></canvas>
         
         <div id="ui-panel">
-            <div class="ui-section">
-                <div class="ui-label">SCORE</div>
-                <div id="score-val" class="ui-value">00000000</div>
+            <div>
+                <div class="ui-section">
+                    <div class="ui-label">SCORE</div>
+                    <div id="score-val" class="ui-value">00000000</div>
+                </div>
+                <div class="ui-section">
+                    <div class="ui-label">GRAZE</div>
+                    <div id="graze-val" class="ui-value" style="color: #00ffcc;">0</div>
+                </div>
+                <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
+                <div class="ui-section">
+                    <div class="ui-label">PLAYER</div>
+                    <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
+                </div>
+                <div class="ui-section">
+                    <div class="ui-label">BOMB</div>
+                    <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
+                </div>
+                <hr style="border:0; border-top:1px solid #333; margin:10px 0;">
+                <div class="ui-section">
+                    <div class="ui-label">POWER</div>
+                    <div id="power-val" class="ui-value" style="color: #ffff55;">1.00</div>
+                </div>
             </div>
-            <div class="ui-section">
-                <div class="ui-label">GRAZE</div>
-                <div id="graze-val" class="ui-value" style="color: #00ffcc;">0</div>
-            </div>
-            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
-            <div class="ui-section">
-                <div class="ui-label">PLAYER</div>
-                <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
-            </div>
-            <div class="ui-section">
-                <div class="ui-label">BOMB</div>
-                <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
-            </div>
-            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
-            <div class="ui-section">
-                <div class="ui-label">POWER</div>
-                <div id="power-val" class="ui-value" style="color: #ffff55;">1.00</div>
+
+            <!-- 霊夢の立ち絵表示スペース -->
+            <div id="stand-character">
+                <img id="reimu-img" src="https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f38e.png" alt="霊夢立ち絵" onerror="this.style.display='none';">
             </div>
         </div>
     </div>
@@ -86,6 +108,9 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        // サンプルとしてWikimedia/パブリックドメインのゆっくり霊夢画像を設定
+        document.getElementById('reimu-img').src = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Yukkuri_reimu.png/240px-Yukkuri_reimu.png";
 
         let player = { 
             x: canvas.width / 2, 
@@ -110,7 +135,6 @@
         let keys = {};
         let shootInterval = 0;
         let gameOver = false;
-        let optionAngle = 0; // オプション回転用アニメーション変数
 
         window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
@@ -126,7 +150,6 @@
             items.push({ x: x, y: y, vx: (Math.random()-0.5)*1.5, vy: -2 - Math.random()*2, type: 'point' });
         }
 
-        // パワーに応じたオプションの位置座標を取得する関数
         function getOptionPositions() {
             let positions = [];
             let count = 0;
@@ -135,7 +158,7 @@
             else if (player.power >= 2.0) count = 1;
 
             let isSlow = keys['shift'];
-            let dist = isSlow ? 18 : 32; // Shift移動時は自機に収束
+            let dist = isSlow ? 18 : 32;
 
             if (count === 1) {
                 positions.push({ x: player.x, y: player.y - dist });
@@ -156,8 +179,6 @@
 
             if (player.invincible > 0) player.invincible--;
 
-            optionAngle += 0.05;
-
             let isSlow = keys['shift'];
             let spd = isSlow ? player.slowSpeed : player.normalSpeed;
             if ((keys['arrowleft'] || keys['a']) && player.x > 12) player.x -= spd;
@@ -165,16 +186,13 @@
             if ((keys['arrowup'] || keys['w']) && player.y > 12) player.y -= spd;
             if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 12) player.y += spd;
 
-            // 自機およびオプションからのショット処理
             if (keys['z']) {
                 shootInterval++;
                 let threshold = isSlow ? 4 : 6;
                 if (shootInterval >= threshold) {
-                    // 自機本体からのショット
                     bullets.push({ x: player.x - 6, y: player.y - 10, vy: -15 });
                     bullets.push({ x: player.x + 6, y: player.y - 10, vy: -15 });
 
-                    // オプションからの追尾弾
                     let opts = getOptionPositions();
                     opts.forEach(opt => {
                         homingBullets.push({
@@ -192,7 +210,6 @@
                 shootInterval = 0;
             }
 
-            // ザコ敵の出現
             spawnTimer++;
             if (spawnTimer > 50) {
                 enemies.push({
@@ -200,24 +217,22 @@
                     y: -10,
                     radius: 14,
                     hp: 6,
-                    vx: 0,        // 左右移動なし
-                    vy: 1.2,      // 下方向にゆっくり移動
+                    vx: 0,
+                    vy: 1.2,
                     shootTimer: 0
                 });
                 spawnTimer = 0;
             }
 
-            // ザコ敵の処理
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
-                e.y += e.vy; // 直進のみ
+                e.y += e.vy;
 
                 if (e.y > canvas.height + 20) {
                     enemies.splice(i, 1);
                     continue;
                 }
 
-                // 攻撃頻度を下げる (110フレーム毎に1発)
                 e.shootTimer++;
                 if (e.shootTimer > 110) {
                     let angle = Math.atan2(player.y - e.y, player.x - e.x);
@@ -231,7 +246,6 @@
                 }
             }
 
-            // 通常弾の処理
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.y += b.vy;
@@ -255,11 +269,8 @@
                 }
             }
 
-            // 追尾弾の処理
             for (let i = homingBullets.length - 1; i >= 0; i--) {
                 let hb = homingBullets[i];
-
-                // 最寄りの敵を検索
                 let target = null;
                 let minDist = 9999;
                 enemies.forEach(e => {
@@ -270,12 +281,10 @@
                     }
                 });
 
-                // ターゲットが存在する場合は誘導
                 if (target) {
                     let targetAngle = Math.atan2(target.y - hb.y, target.x - hb.x);
                     let currentAngle = Math.atan2(hb.vy, hb.vx);
 
-                    // 角度をスムーズに敵の方向に向ける
                     let diff = targetAngle - currentAngle;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
@@ -308,7 +317,6 @@
                 }
             }
 
-            // 敵弾の処理
             for (let i = enemyBullets.length - 1; i >= 0; i--) {
                 let eb = enemyBullets[i];
                 eb.x += eb.vx;
@@ -339,7 +347,6 @@
                 }
             }
 
-            // アイテム処理
             for (let i = items.length - 1; i >= 0; i--) {
                 let it = items[i];
                 it.vy += 0.03;
@@ -368,7 +375,6 @@
                 }
             }
 
-            // UI描画更新
             document.getElementById('score-val').innerText = String(player.score).padStart(8, '0');
             document.getElementById('graze-val').innerText = player.graze;
             document.getElementById('lives-val').innerText = gameOver ? 'DEAD' : '★'.repeat(Math.max(0, player.lives));
@@ -379,7 +385,6 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 回収ライン
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
@@ -388,7 +393,6 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // ザコ敵
             enemies.forEach(e => {
                 ctx.fillStyle = '#cc44ff';
                 ctx.beginPath();
@@ -396,7 +400,6 @@
                 ctx.fill();
             });
 
-            // アイテム
             items.forEach(it => {
                 ctx.beginPath();
                 if (it.type === 'P') {
@@ -416,7 +419,6 @@
                 }
             });
 
-            // 通常弾および追尾弾（見た目は同じ水色）
             ctx.fillStyle = '#00ffcc';
             bullets.forEach(b => {
                 ctx.fillRect(b.x - 2, b.y - 6, 4, 12);
@@ -425,7 +427,6 @@
                 ctx.fillRect(hb.x - 2, hb.y - 6, 4, 12);
             });
 
-            // 敵弾
             ctx.fillStyle = '#ff5555';
             enemyBullets.forEach(eb => {
                 ctx.beginPath();
@@ -433,7 +434,6 @@
                 ctx.fill();
             });
 
-            // オプション（円形ユニット）の描画
             let opts = getOptionPositions();
             opts.forEach(opt => {
                 ctx.strokeStyle = '#ff9900';
@@ -448,7 +448,6 @@
                 ctx.fill();
             });
 
-            // 自機
             if (player.invincible === 0 || Math.floor(player.invincible / 4) % 2 === 0) {
                 ctx.fillStyle = '#ff3333';
                 ctx.beginPath();
@@ -474,7 +473,6 @@
                 }
             }
 
-            // ゲームオーバー表示
             if (gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
