@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 ボム実装版</title>
+    <title>東方幻作伝 〜 パワー消費ボム版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -48,7 +48,7 @@
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 ボム実装版</h1>
+    <h1>東方幻作伝 〜 パワー消費ボム版</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="640" height="560"></canvas>
@@ -67,10 +67,6 @@
                 <div class="ui-label">PLAYER</div>
                 <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
             </div>
-            <div class="ui-section">
-                <div class="ui-label">BOMB</div>
-                <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
-            </div>
             <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
             <div class="ui-section">
                 <div class="ui-label">POWER</div>
@@ -80,7 +76,7 @@
     </div>
 
     <p style="margin-top: 15px; font-size: 13px; color: #ccc;">
-        矢印キー：移動 / Shift：低速移動 / Z：ショット / X：ボム（画面全体の弾消去＆ダメージ）
+        矢印キー：移動 / Shift：低速移動 / Z：ショット / X：ボム（POWERを1.00消費して発動）
     </p>
 
     <script>
@@ -94,7 +90,6 @@
             slowSpeed: 2.2, 
             radius: 3,
             lives: 5,
-            bombs: 3,
             score: 0,
             graze: 0,
             power: 1.00,
@@ -187,9 +182,9 @@
                 shootInterval = 0;
             }
 
-            // ボム発動処理
-            if (keys['x'] && player.bombs > 0 && bombActiveTimer === 0) {
-                player.bombs--;
+            // ボム発動処理（パワーを1.00消費）
+            if (keys['x'] && player.power >= 1.00 && bombActiveTimer === 0) {
+                player.power -= 1.00;
                 bombActiveTimer = 90;
             }
 
@@ -392,7 +387,6 @@
             document.getElementById('score-val').innerText = String(player.score).padStart(8, '0');
             document.getElementById('graze-val').innerText = player.graze;
             document.getElementById('lives-val').innerText = gameOver ? 'DEAD' : '★'.repeat(Math.max(0, player.lives));
-            document.getElementById('bombs-val').innerText = '★'.repeat(Math.max(0, player.bombs));
             document.getElementById('power-val').innerText = player.power.toFixed(2);
         }
 
