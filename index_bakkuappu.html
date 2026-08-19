@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 完全収束版</title>
+    <title>東方幻作伝 〜 攻撃頻度調整版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -12,46 +12,46 @@
             margin: 0;
             padding-top: 20px;
         }
-        h1 { margin: 5px 0 15px 0; font-size: 22px; letter-spacing: 2px; color: #ffccff; }
+        h1 { margin: 5px 0 15px 0; font-size: 24px; letter-spacing: 2px; color: #ffccff; }
         #game-container {
             display: inline-flex;
             background-color: #000;
             border: 3px solid #666;
-            box-shadow: 0 0 20px rgba(255,100,200,0.3);
+            box-shadow: 0 0 25px rgba(255,100,200,0.4);
         }
         canvas { 
             background-color: #05050f; 
             display: block; 
         }
         #ui-panel {
-            width: 180px;
+            width: 200px;
             background-color: #111;
             border-left: 2px solid #444;
-            padding: 15px;
+            padding: 20px 15px;
             text-align: left;
             box-sizing: border-box;
-            font-size: 14px;
+            font-size: 15px;
         }
         .ui-section {
-            margin-bottom: 18px;
+            margin-bottom: 20px;
         }
         .ui-label {
             color: #aaa;
-            font-size: 11px;
+            font-size: 12px;
             margin-bottom: 2px;
         }
         .ui-value {
             color: #fff;
-            font-size: 17px;
+            font-size: 18px;
             font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 弾幕と集弾システム</h1>
+    <h1>東方幻作伝 〜 攻撃頻度調整版</h1>
     
     <div id="game-container">
-        <canvas id="gameCanvas" width="384" height="448"></canvas>
+        <canvas id="gameCanvas" width="640" height="560"></canvas>
         
         <div id="ui-panel">
             <div class="ui-section">
@@ -62,7 +62,7 @@
                 <div class="ui-label">GRAZE</div>
                 <div id="graze-val" class="ui-value" style="color: #00ffcc;">0</div>
             </div>
-            <hr style="border:0; border-top:1px solid #333; margin:12px 0;">
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
             <div class="ui-section">
                 <div class="ui-label">PLAYER</div>
                 <div id="lives-val" class="ui-value" style="color: #ff5577;">★★★★★</div>
@@ -71,7 +71,7 @@
                 <div class="ui-label">BOMB</div>
                 <div id="bombs-val" class="ui-value" style="color: #55aaff;">★★★</div>
             </div>
-            <hr style="border:0; border-top:1px solid #333; margin:12px 0;">
+            <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
             <div class="ui-section">
                 <div class="ui-label">POWER</div>
                 <div id="power-val" class="ui-value" style="color: #ffff55;">1.00</div>
@@ -80,7 +80,7 @@
     </div>
 
     <p style="margin-top: 15px; font-size: 13px; color: #ccc;">
-        矢印キー：移動 / Shift：低速移動＆弾収束＆判定表示（上部でアイテム全回収！） / Z：お札連射
+        矢印キー：移動 / Shift：低速移動（画面上部でアイテム全回収！） / Z：お札＆追尾弾連射
     </p>
 
     <script>
@@ -88,10 +88,10 @@
         const ctx = canvas.getContext('2d');
 
         let player = { 
-            x: 192, 
-            y: 380, 
-            normalSpeed: 4.5, 
-            slowSpeed: 2, 
+            x: canvas.width / 2, 
+            y: canvas.height - 80, 
+            normalSpeed: 5, 
+            slowSpeed: 2.2, 
             radius: 3,
             lives: 5,
             bombs: 3,
@@ -102,11 +102,11 @@
         };
 
         let bullets = [];
+        let homingBullets = [];
         let enemyBullets = [];
         let items = [];
-        let enemies = [
-            { x: 192, y: 70, radius: 20, hp: 60, shootTimer: 0 }
-        ];
+        let enemies = [];
+        let spawnTimer = 0;
         let keys = {};
         let shootInterval = 0;
         let gameOver = false;
@@ -115,19 +115,38 @@
         window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
         function resetPlayer() {
-            player.x = 192;
-            player.y = 380;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 80;
             player.invincible = 120;
         }
 
-        // 敵撃破時のアイテムドロップ
         function dropItems(x, y) {
-            for (let i = 0; i < 2; i++) {
-                items.push({ x: x + (Math.random()-0.5)*30, y: y, vx: (Math.random()-0.5)*1.5, vy: -2 - Math.random()*2, type: 'P' });
+            items.push({ x: x - 6, y: y, vy: 1.8, type: 'P' });
+            items.push({ x: x + 6, y: y, vy: 1.8, type: 'point' });
+        }
+
+        function getOptionPositions() {
+            let positions = [];
+            let count = 0;
+            if (player.power >= 4.0) count = 4;
+            else if (player.power >= 3.0) count = 2;
+            else if (player.power >= 2.0) count = 1;
+
+            let isSlow = keys['shift'];
+            let dist = isSlow ? 18 : 32;
+
+            if (count === 1) {
+                positions.push({ x: player.x, y: player.y - dist });
+            } else if (count === 2) {
+                positions.push({ x: player.x - dist, y: player.y });
+                positions.push({ x: player.x + dist, y: player.y });
+            } else if (count === 4) {
+                positions.push({ x: player.x - dist, y: player.y });
+                positions.push({ x: player.x + dist, y: player.y });
+                positions.push({ x: player.x, y: player.y - dist });
+                positions.push({ x: player.x, y: player.y + dist });
             }
-            for (let i = 0; i < 3; i++) {
-                items.push({ x: x + (Math.random()-0.5)*30, y: y, vx: (Math.random()-0.5)*1.5, vy: -2 - Math.random()*2, type: 'point' });
-            }
+            return positions;
         }
 
         function update() {
@@ -142,34 +161,66 @@
             if ((keys['arrowup'] || keys['w']) && player.y > 12) player.y -= spd;
             if ((keys['arrowdown'] || keys['s']) && player.y < canvas.height - 12) player.y += spd;
 
-            // Zキーでショット（低速時は収束して連射速度アップ）
             if (keys['z']) {
                 shootInterval++;
-                let threshold = isSlow ? 3 : 5;
+                let threshold = isSlow ? 4 : 6;
                 if (shootInterval >= threshold) {
-                    if (isSlow) {
-                        // 低速時：中央に収束した弾道
-                        bullets.push({ x: player.x - 3, y: player.y - 10, vy: -16 });
-                        bullets.push({ x: player.x + 3, y: player.y - 10, vy: -16 });
-                        if (player.power >= 2.0) {
-                            bullets.push({ x: player.x, y: player.y - 12, vy: -18 });
-                        }
-                    } else {
-                        // 通常時：広がった弾道
-                        let off = player.power >= 2.0 ? 12 : 8;
-                        bullets.push({ x: player.x - off, y: player.y - 10, vy: -15 });
-                        bullets.push({ x: player.x + off, y: player.y - 10, vy: -15 });
-                        if (player.power >= 2.0) {
-                            bullets.push({ x: player.x, y: player.y - 10, vy: -15 });
-                        }
-                    }
+                    bullets.push({ x: player.x - 6, y: player.y - 10, vy: -15 });
+                    bullets.push({ x: player.x + 6, y: player.y - 10, vy: -15 });
+
+                    let opts = getOptionPositions();
+                    opts.forEach(opt => {
+                        homingBullets.push({
+                            x: opt.x,
+                            y: opt.y,
+                            vx: 0,
+                            vy: -12,
+                            speed: 12
+                        });
+                    });
+
                     shootInterval = 0;
                 }
             } else {
                 shootInterval = 0;
             }
 
-            // 自機弾の移動と敵との判定
+            spawnTimer++;
+            if (spawnTimer > 60) {
+                enemies.push({
+                    x: Math.random() * (canvas.width - 80) + 40,
+                    y: -10,
+                    radius: 8,
+                    hp: 6,
+                    vy: 1.2,
+                    shootTimer: 0
+                });
+                spawnTimer = 0;
+            }
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                e.y += e.vy;
+
+                if (e.y > canvas.height + 20) {
+                    enemies.splice(i, 1);
+                    continue;
+                }
+
+                e.shootTimer++;
+                // 攻撃頻度を下げる（110 -> 180フレームに延長）
+                if (e.shootTimer > 180) {
+                    let angle = Math.atan2(player.y - e.y, player.x - e.x);
+                    enemyBullets.push({
+                        x: e.x, y: e.y,
+                        vx: Math.cos(angle) * 2.5,
+                        vy: Math.sin(angle) * 2.5,
+                        grazed: false
+                    });
+                    e.shootTimer = 0;
+                }
+            }
+
             for (let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.y += b.vy;
@@ -180,38 +231,76 @@
 
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     let e = enemies[j];
-                    let d = Math.hypot(e.x - b.x, e.y - b.y);
-                    if (d < e.radius + 4) {
+                    if (Math.hypot(e.x - b.x, e.y - b.y) < e.radius + 4) {
                         e.hp -= 1;
                         bullets.splice(i, 1);
                         if (e.hp <= 0) {
                             dropItems(e.x, e.y);
                             enemies.splice(j, 1);
-                            player.score += 500;
+                            player.score += 200;
                         }
                         break;
                     }
                 }
             }
 
-            // 敵の弾幕発射
-            enemies.forEach(e => {
-                e.shootTimer++;
-                if (e.shootTimer > 28) {
-                    let angle = Math.atan2(player.y - e.y, player.x - e.x);
-                    for (let i = -1; i <= 1; i++) {
-                        enemyBullets.push({
-                            x: e.x, y: e.y,
-                            vx: Math.cos(angle + i * 0.22) * 3.5,
-                            vy: Math.sin(angle + i * 0.22) * 3.5,
-                            grazed: false
-                        });
-                    }
-                    e.shootTimer = 0;
-                }
-            });
+            for (let i = homingBullets.length - 1; i >= 0; i--) {
+                let hb = homingBullets[i];
 
-            // 敵弾の移動・グレイズ・被弾
+                let target = null;
+                let minDist = 9999;
+
+                enemies.forEach(e => {
+                    if (e.y < hb.y) { 
+                        let d = Math.hypot(e.x - hb.x, e.y - hb.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            target = e;
+                        }
+                    }
+                });
+
+                if (target) {
+                    let targetAngle = Math.atan2(target.y - hb.y, target.x - hb.x);
+                    let currentAngle = Math.atan2(hb.vy, hb.vx);
+
+                    let diff = targetAngle - currentAngle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+
+                    let newAngle = currentAngle + diff * 0.08;
+                    let nextVx = Math.cos(newAngle) * hb.speed;
+                    let nextVy = Math.sin(newAngle) * hb.speed;
+
+                    if (nextVy < -2) {
+                        hb.vx = nextVx;
+                        hb.vy = nextVy;
+                    }
+                }
+
+                hb.x += hb.vx;
+                hb.y += hb.vy;
+
+                if (hb.x < -20 || hb.x > canvas.width + 20 || hb.y < -20 || hb.y > canvas.height + 20) {
+                    homingBullets.splice(i, 1);
+                    continue;
+                }
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    let e = enemies[j];
+                    if (Math.hypot(e.x - hb.x, e.y - hb.y) < e.radius + 5) {
+                        e.hp -= 1.2;
+                        homingBullets.splice(i, 1);
+                        if (e.hp <= 0) {
+                            dropItems(e.x, e.y);
+                            enemies.splice(j, 1);
+                            player.score += 200;
+                        }
+                        break;
+                    }
+                }
+            }
+
             for (let i = enemyBullets.length - 1; i >= 0; i--) {
                 let eb = enemyBullets[i];
                 eb.x += eb.vx;
@@ -224,14 +313,12 @@
 
                 let d = Math.hypot(player.x - eb.x, player.y - eb.y);
 
-                // グレイズ
-                if (!eb.grazed && d < 16 && d >= 4) {
+                if (!eb.grazed && d < 18 && d >= 4) {
                     player.graze++;
                     player.score += 50;
                     eb.grazed = true;
                 }
 
-                // 被弾
                 if (player.invincible === 0 && d < 4) {
                     player.lives--;
                     enemyBullets.splice(i, 1);
@@ -244,28 +331,25 @@
                 }
             }
 
-            // アイテムの挙動（画面上部で全回収＆引き寄せ）
             for (let i = items.length - 1; i >= 0; i--) {
                 let it = items[i];
-                it.vy += 0.03;
-                it.x += it.vx;
-                it.y += it.vy;
+
+                if (player.y <= 120) {
+                    let angle = Math.atan2(player.y - it.y, player.x - it.x);
+                    it.x += Math.cos(angle) * 16;
+                    it.y += Math.sin(angle) * 16;
+                } else {
+                    it.y += it.vy;
+                }
 
                 if (it.y > canvas.height + 20) {
                     items.splice(i, 1);
                     continue;
                 }
 
-                let d = Math.hypot(player.x - it.x, player.y - it.y);
-                if (player.y < 80 || d < 40) {
-                    let angle = Math.atan2(player.y - it.y, player.x - it.x);
-                    it.x += Math.cos(angle) * 12;
-                    it.y += Math.sin(angle) * 12;
-                }
-
-                if (Math.hypot(player.x - it.x, player.y - it.y) < 10) {
+                if (Math.hypot(player.x - it.x, player.y - it.y) < 18) {
                     if (it.type === 'P') {
-                        player.power = Math.min(4.00, player.power + 0.05);
+                        player.power = Math.min(4.00, player.power + 0.10);
                     } else {
                         player.score += 1000;
                     }
@@ -273,13 +357,6 @@
                 }
             }
 
-            // 敵が全滅したら復活
-            if (enemies.length === 0) {
-                player.score += 2000;
-                enemies.push({ x: 192, y: 70, radius: 20, hp: 80, shootTimer: 0 });
-            }
-
-            // UI更新
             document.getElementById('score-val').innerText = String(player.score).padStart(8, '0');
             document.getElementById('graze-val').innerText = player.graze;
             document.getElementById('lives-val').innerText = gameOver ? 'DEAD' : '★'.repeat(Math.max(0, player.lives));
@@ -290,105 +367,111 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 画面上部のアイテム全回収ライン
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
-            ctx.moveTo(0, 80);
-            ctx.lineTo(canvas.width, 80);
+            ctx.moveTo(0, 120);
+            ctx.lineTo(canvas.width, 120);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // 敵の描画
-            if (enemies.length > 0) {
-                let e = enemies[0];
+            enemies.forEach(e => {
                 ctx.fillStyle = '#cc44ff';
                 ctx.beginPath();
                 ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.font = '10px sans-serif';
-                ctx.fillText(`HP:${e.hp}`, e.x - 12, e.y - 24);
-            }
+            });
 
-            // アイテムの描画
             items.forEach(it => {
                 ctx.beginPath();
                 if (it.type === 'P') {
                     ctx.fillStyle = '#ffff00';
-                    ctx.arc(it.x, it.y, 6, 0, Math.PI * 2);
+                    ctx.arc(it.x, it.y, 7, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = '#000';
-                    ctx.font = 'bold 9px sans-serif';
+                    ctx.font = 'bold 10px sans-serif';
                     ctx.fillText('P', it.x - 3, it.y + 3);
                 } else {
                     ctx.fillStyle = '#00aaff';
-                    ctx.arc(it.x, it.y, 5, 0, Math.PI * 2);
+                    ctx.arc(it.x, it.y, 6, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 8px sans-serif';
+                    ctx.font = 'bold 9px sans-serif';
                     ctx.fillText('点', it.x - 5, it.y + 3);
                 }
             });
 
-            // 自機弾の描画
             ctx.fillStyle = '#00ffcc';
             bullets.forEach(b => {
-                ctx.fillRect(b.x - 2, b.y - 5, 4, 10);
+                ctx.fillRect(b.x - 2, b.y - 6, 4, 12);
             });
 
-            // 敵の弾の描画
+            homingBullets.forEach(hb => {
+                let angle = Math.atan2(hb.vy, hb.vx);
+                ctx.save();
+                ctx.translate(hb.x, hb.y);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.fillStyle = '#00ffcc';
+                ctx.fillRect(-2, -6, 4, 12);
+                ctx.restore();
+            });
+
             ctx.fillStyle = '#ff5555';
             enemyBullets.forEach(eb => {
                 ctx.beginPath();
-                ctx.arc(eb.x, eb.y, 4, 0, Math.PI * 2);
+                ctx.arc(eb.x, eb.y, 5, 0, Math.PI * 2);
                 ctx.fill();
             });
 
-            // 自機の描画
+            let opts = getOptionPositions();
+            opts.forEach(opt => {
+                ctx.strokeStyle = '#ff9900';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(opt.x, opt.y, 7, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffff55';
+                ctx.beginPath();
+                ctx.arc(opt.x, opt.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
             if (player.invincible === 0 || Math.floor(player.invincible / 4) % 2 === 0) {
                 ctx.fillStyle = '#ff3333';
                 ctx.beginPath();
-                ctx.arc(player.x, player.y, 5, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, 6, 0, Math.PI * 2);
                 ctx.fill();
 
                 if (keys['shift']) {
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
-                    ctx.arc(player.x, player.y, 2.5, 0, Math.PI * 2);
+                    ctx.arc(player.x, player.y, 3, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // グレイズ範囲
-                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+                    ctx.strokeStyle = '#00ffff';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.arc(player.x, player.y, 16, 0, Math.PI * 2);
-                    ctx.stroke();
-
-                    // 当たり判定のコア
-                    ctx.strokeStyle = '#00ffff';
-                    ctx.beginPath();
-                    ctx.arc(player.x, player.y, 10, 0, Math.PI * 2);
+                    ctx.arc(player.x, player.y, 12, 0, Math.PI * 2);
                     ctx.stroke();
                 } else {
                     ctx.fillStyle = 'white';
                     ctx.beginPath();
-                    ctx.arc(player.x, player.y, 1.5, 0, Math.PI * 2);
+                    ctx.arc(player.x, player.y, 2, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
 
-            // ゲームオーバー表示
             if (gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = 'red';
-                ctx.font = 'bold 28px sans-serif';
+                ctx.font = 'bold 32px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
                 ctx.fillStyle = 'white';
-                ctx.font = '14px sans-serif';
-                ctx.fillText('F5キーでリトライ', canvas.width / 2, canvas.height / 2 + 30);
+                ctx.font = '16px sans-serif';
+                ctx.fillText('F5キーでリトライ', canvas.width / 2, canvas.height / 2 + 35);
                 ctx.textAlign = 'left';
             }
         }
