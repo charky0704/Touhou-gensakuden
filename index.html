@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>東方幻作伝 〜 修正版</title>
+    <title>東方幻作伝 〜 敵小型化版</title>
     <style>
         body { 
             background-color: #1a1a1a; 
@@ -48,7 +48,7 @@
     </style>
 </head>
 <body>
-    <h1>東方幻作伝 〜 修正版</h1>
+    <h1>東方幻作伝 〜 敵小型化版</h1>
     
     <div id="game-container">
         <canvas id="gameCanvas" width="640" height="560"></canvas>
@@ -190,7 +190,7 @@
                 enemies.push({
                     x: Math.random() * (canvas.width - 80) + 40,
                     y: -10,
-                    radius: 14,
+                    radius: 8, // 敵の半径を小さく変更 (元: 14)
                     hp: 6,
                     vy: 1.2,
                     shootTimer: 0
@@ -322,17 +322,15 @@
                 }
             }
 
-            // アイテム処理（上部全回収機能）
             for (let i = items.length - 1; i >= 0; i--) {
                 let it = items[i];
 
-                // 自機が回収ライン(Y=120)より上にいる場合、自機へ急速吸い寄せ
                 if (player.y <= 120) {
                     let angle = Math.atan2(player.y - it.y, player.x - it.x);
                     it.x += Math.cos(angle) * 16;
                     it.y += Math.sin(angle) * 16;
                 } else {
-                    it.y += it.vy; // 通常時は下落
+                    it.y += it.vy;
                 }
 
                 if (it.y > canvas.height + 20) {
@@ -360,7 +358,6 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 回収ライン描画 (Y=120)
             ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
             ctx.setLineDash([4, 4]);
             ctx.beginPath();
